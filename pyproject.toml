@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "orchestra-surgical-display-integration"
+version = "0.1.0"
+description = "Non-blocking Python client and local receiver for Orchestra Surgical Display"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+orchestra-surgical-receiver = "orchestra_surgical_display.simulator:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

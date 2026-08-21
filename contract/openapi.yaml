@@ -1,0 +1,309 @@
+openapi: 3.1.0
+info:
+  title: Orchestra Surgical Display API
+  version: 0.3.0
+  description: >-
+    Read-only robot-to-tablet event API for the RB-Y1 surgical display.
+    It accepts display telemetry only and exposes no robot control operation.
+servers:
+  - url: http://10.77.0.11:8080
+    description: Recommended Display 2 Y700 address
+paths:
+  /api/v1/health:
+    get:
+      operationId: getHealth
+      responses:
+        "200":
+          description: Tablet receiver health
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+  /api/v1/robots:
+    get:
+      operationId: getRobotSnapshots
+      responses:
+        "200":
+          description: Latest stored state plus independently calculated presence
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RobotsResponse"
+  /api/v1/state:
+    post:
+      operationId: postSimpleState
+      description: Development and simulator shortcut. The tablet creates the event envelope.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SimpleSurgicalStateRequest"
+      responses:
+        "202":
+          description: State accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventAcceptedResponse"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "415":
+          $ref: "#/components/responses/InvalidRequest"
+        "422":
+          $ref: "#/components/responses/InvalidRequest"
+  /api/v1/events:
+    post:
+      operationId: postSurgicalEvent
+      description: Production state and heartbeat event endpoint.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SurgicalEventRequest"
+      responses:
+        "202":
+          description: Event accepted; duplicate event IDs remain successful and idempotent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventAcceptedResponse"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "413":
+          $ref: "#/components/responses/InvalidRequest"
+        "415":
+          $ref: "#/components/responses/InvalidRequest"
+        "422":
+          $ref: "#/components/responses/InvalidRequest"
+components:
+  responses:
+    InvalidRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiErrorResponse"
+  schemas:
+    SurgicalState:
+      type: string
+      enum:
+        - STARTING
+        - AWAITING_START
+        - COMMAND_READY
+        - MANUAL_MOVING
+        - VISUAL_SERVOING
+        - RETURNING
+        - ERROR
+        - PEDAL_MOVING
+        - HOLDING
+        - PROTECTIVE_RECOVERY
+    EventType:
+      type: string
+      enum: [STATE, HEARTBEAT]
+    EventSeverity:
+      type: string
+      enum: [INFO, WARNING, ERROR]
+    Presence:
+      type: string
+      enum: [CONNECTED, STALE, OFFLINE]
+    ActiveArm:
+      type: string
+      enum: [scope, assist]
+    Direction:
+      type: string
+      enum: [cam_left, cam_right, cam_up, cam_down, insert, retract]
+    PedalPhase:
+      type: string
+      enum: [idle, engaged, decelerating, release_required]
+    VoicePhase:
+      type: string
+      enum: [disabled, listening, recording, transcribing, dispatching, complete, error]
+    RecognitionResult:
+      type: string
+      enum: [recognized, unrecognized]
+    VisualPhase:
+      type: string
+      enum: [waiting_for_target, acquiring, tracking, target_loss_grace, target_lost, handoff_decelerating]
+    SurgicalPayload:
+      type: object
+      additionalProperties: false
+      properties:
+        step:
+          type: string
+          pattern: "^[A-Z][A-Z0-9_]{0,63}$"
+        session_active:
+          type: boolean
+        active_arm:
+          $ref: "#/components/schemas/ActiveArm"
+        direction:
+          $ref: "#/components/schemas/Direction"
+        direction_scale:
+          type: number
+          minimum: 0.1
+          maximum: 3.0
+          default: 1.0
+        pedal_pressed:
+          type: boolean
+          default: false
+        pedal_phase:
+          $ref: "#/components/schemas/PedalPhase"
+        voice_phase:
+          $ref: "#/components/schemas/VoicePhase"
+        recognized_text:
+          type: string
+          minLength: 1
+          maxLength: 80
+          description: Final short command text for transient operator feedback.
+        recognition_result:
+          $ref: "#/components/schemas/RecognitionResult"
+        command_action:
+          type: string
+          pattern: "^[A-Z][A-Z0-9_]{0,63}$"
+        command_result:
+          type: string
+          enum: [accepted, rejected]
+        visual_phase:
+          $ref: "#/components/schemas/VisualPhase"
+        gripper_available:
+          type: boolean
+        gripper_requested:
+          type: string
+          enum: [open, close]
+        gripper_health:
+          type: string
+          enum: [ok, unavailable, error]
+        safety_reason_code:
+          type: string
+          pattern: "^[A-Z][A-Z0-9_]{0,63}$"
+        motion_label:
+          type: string
+          pattern: "^[a-z][a-z0-9_]{0,63}$"
+    SurgicalEventRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - schema_version
+        - event_id
+        - event_type
+        - robot_id
+        - session_id
+        - sequence
+        - state
+        - severity
+        - occurred_at
+      properties:
+        schema_version:
+          type: integer
+          const: 1
+        event_id:
+          type: string
+          format: uuid
+        event_type:
+          $ref: "#/components/schemas/EventType"
+        robot_id:
+          type: string
+          pattern: "^[a-z0-9][a-z0-9_-]{1,63}$"
+        session_id:
+          type: string
+          pattern: "^[a-z0-9][a-z0-9_-]{1,63}$"
+        sequence:
+          type: integer
+          minimum: 0
+        state:
+          $ref: "#/components/schemas/SurgicalState"
+        severity:
+          $ref: "#/components/schemas/EventSeverity"
+        occurred_at:
+          type: string
+          format: date-time
+        payload:
+          $ref: "#/components/schemas/SurgicalPayload"
+    SimpleSurgicalStateRequest:
+      type: object
+      additionalProperties: false
+      required: [state]
+      properties:
+        robot_id:
+          type: string
+          default: rby1-surgical
+        state:
+          $ref: "#/components/schemas/SurgicalState"
+        payload:
+          $ref: "#/components/schemas/SurgicalPayload"
+    EventAcceptedResponse:
+      type: object
+      required: [accepted, event_id, duplicate, server_received_at]
+      properties:
+        accepted:
+          type: boolean
+          const: true
+        event_id:
+          type: string
+          format: uuid
+        duplicate:
+          type: boolean
+        server_received_at:
+          type: string
+          format: date-time
+    ApiErrorResponse:
+      type: object
+      required: [error, message, fields]
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        fields:
+          type: array
+          items:
+            type: string
+    HealthResponse:
+      type: object
+      required: [status, api_version, server_time, started_at]
+      properties:
+        status:
+          type: string
+          const: ok
+        api_version:
+          type: string
+          const: v1
+        server_time:
+          type: string
+          format: date-time
+        started_at:
+          type: string
+          format: date-time
+    RobotSnapshot:
+      type: object
+      required: [robot_id, session_id, sequence, state, severity, presence, last_seen_at, payload]
+      properties:
+        robot_id:
+          type: string
+        session_id:
+          type: string
+        sequence:
+          type: integer
+        state:
+          $ref: "#/components/schemas/SurgicalState"
+        severity:
+          $ref: "#/components/schemas/EventSeverity"
+        presence:
+          $ref: "#/components/schemas/Presence"
+        last_seen_at:
+          type: string
+          format: date-time
+        payload:
+          $ref: "#/components/schemas/SurgicalPayload"
+    RobotsResponse:
+      type: object
+      required: [server_time, robots]
+      properties:
+        server_time:
+          type: string
+          format: date-time
+        robots:
+          type: array
+          items:
+            $ref: "#/components/schemas/RobotSnapshot"

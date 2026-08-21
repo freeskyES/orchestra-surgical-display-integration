@@ -1,0 +1,74 @@
+{
+  "contract_version": "0.3.0",
+  "schema_version": 1,
+  "robot_id_example": "rby1-surgical",
+  "presentation_states": [
+    "STARTING",
+    "AWAITING_START",
+    "COMMAND_READY",
+    "MANUAL_MOVING",
+    "VISUAL_SERVOING",
+    "RETURNING",
+    "ERROR"
+  ],
+  "compatibility_states": {
+    "PEDAL_MOVING": "MANUAL_MOVING",
+    "HOLDING": "COMMAND_READY",
+    "PROTECTIVE_RECOVERY": "COMMAND_READY"
+  },
+  "transport_states": [
+    "STARTING",
+    "AWAITING_START",
+    "COMMAND_READY",
+    "MANUAL_MOVING",
+    "VISUAL_SERVOING",
+    "RETURNING",
+    "ERROR",
+    "PEDAL_MOVING",
+    "HOLDING",
+    "PROTECTIVE_RECOVERY"
+  ],
+  "priority": [
+    "ERROR",
+    "PROTECTIVE_RECOVERY",
+    "HOLDING",
+    "RETURNING",
+    "PEDAL_MOVING",
+    "VISUAL_SERVOING",
+    "MANUAL_MOVING",
+    "STARTING",
+    "AWAITING_START",
+    "COMMAND_READY"
+  ],
+  "payload_fields": [
+    "step",
+    "session_active",
+    "active_arm",
+    "direction",
+    "direction_scale",
+    "pedal_pressed",
+    "pedal_phase",
+    "voice_phase",
+    "recognized_text",
+    "recognition_result",
+    "command_action",
+    "command_result",
+    "visual_phase",
+    "gripper_available",
+    "gripper_requested",
+    "gripper_health",
+    "safety_reason_code",
+    "motion_label"
+  ],
+  "enums": {
+    "active_arm": ["scope", "assist"],
+    "direction": ["cam_left", "cam_right", "cam_up", "cam_down", "insert", "retract"],
+    "pedal_phase": ["idle", "engaged", "decelerating", "release_required"],
+    "voice_phase": ["disabled", "listening", "recording", "transcribing", "dispatching", "complete", "error"],
+    "recognition_result": ["recognized", "unrecognized"],
+    "command_result": ["accepted", "rejected"],
+    "visual_phase": ["waiting_for_target", "acquiring", "tracking", "target_loss_grace", "target_lost", "handoff_decelerating"],
+    "gripper_requested": ["open", "close"],
+    "gripper_health": ["ok", "unavailable", "error"]
+  }
+}
