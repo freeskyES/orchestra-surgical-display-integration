@@ -1,8 +1,9 @@
-name: Publish API docs
+name: Publish monitor portal and API docs
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
     paths:
       - "contract/openapi.yaml"
       - "site/**"
@@ -20,21 +21,24 @@ concurrency:
 
 jobs:
   deploy:
+    runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - name: Assemble public API documentation
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Assemble public site
         run: |
           mkdir _site
           cp -R site/. _site/
           cp contract/openapi.yaml _site/openapi.yaml
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v4
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+      - name: Upload site
+        uses: actions/upload-pages-artifact@v4
         with:
           path: _site
-      - name: Deploy to GitHub Pages
+      - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4

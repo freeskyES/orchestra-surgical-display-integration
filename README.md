@@ -1,5 +1,10 @@
 # Orchestra Surgical Display Integration
 
+## Public pages
+
+- [현장 Monitor Portal](https://freeskyES.github.io/orchestra-surgical-display-integration/)
+- [Surgical Display API](https://freeskyES.github.io/orchestra-surgical-display-integration/api/)
+
 `solo_surgery` 로봇 프로그램이 Orchestra Surgical Display에 상태를 보내기 위한 공개 Python SDK입니다.
 Lenovo Y700이 없어도 연동을 검증할 수 있는 로컬 수신 서버를 함께 제공합니다.
 
