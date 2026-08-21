@@ -2,7 +2,7 @@
 
 ## Public pages
 
-- [현장 Monitor Portal](https://freeskyES.github.io/orchestra-surgical-display-integration/)
+- [현장 Display Console](https://freeskyes.github.io/orchestra/)
 - [Surgical Display API](https://freeskyES.github.io/orchestra-surgical-display-integration/api/)
 
 `solo_surgery` 로봇 프로그램이 Orchestra Surgical Display에 상태를 보내기 위한 공개 Python SDK입니다.
