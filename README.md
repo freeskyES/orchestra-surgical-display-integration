@@ -34,8 +34,12 @@ curl -X POST http://10.77.0.11:8080/api/v1/state \
 `robot_id`, 이벤트 ID, 세션, 순번, 전송 시간과 중요도는 태블릿이 자동 생성합니다. Python 연동 코드를 사용해도 개발자는 아래처럼 State와 필요한 추가 정보만 전달하면 되고, 나머지는 연동 코드가 자동 생성합니다.
 
 ```python
-display.publish_state("COMMAND_READY")
-display.publish_state("MANUAL_MOVING", {"direction": "cam_left"})
+from orchestra_surgical_display import SurgicalDisplayClient
+
+display = SurgicalDisplayClient("http://10.77.0.11:8080")
+display.state("COMMAND_READY")
+display.state("MANUAL_MOVING", direction="cam_left")
+display.close()
 ```
 
 전체 필드가 보이는 `POST /api/v1/events`는 Python 연동 코드가 내부적으로 사용합니다. 일반 연동에서 직접 호출할 필요가 없습니다.

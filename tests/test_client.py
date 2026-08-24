@@ -8,6 +8,30 @@ from orchestra_surgical_display.client import SurgicalDisplayClient
 
 
 class SurgicalDisplayClientTest(unittest.TestCase):
+    def test_simple_state_method_generates_full_event(self) -> None:
+        delivered: list[dict[str, object]] = []
+        delivered_event = threading.Event()
+
+        def transport(event: dict[str, object], _: float) -> None:
+            delivered.append(event)
+            delivered_event.set()
+
+        with SurgicalDisplayClient(
+            "http://display.invalid",
+            heartbeat_interval=0,
+            transport=transport,
+        ) as client:
+            self.assertTrue(client.state("MANUAL_MOVING", direction="cam_left"))
+            self.assertTrue(delivered_event.wait(1.0))
+
+        event = delivered[0]
+        self.assertEqual("MANUAL_MOVING", event["state"])
+        self.assertEqual({"direction": "cam_left"}, event["payload"])
+        self.assertEqual("rby1-surgical", event["robot_id"])
+        self.assertEqual(1, event["sequence"])
+        self.assertIn("event_id", event)
+        self.assertIn("occurred_at", event)
+
     def test_network_io_runs_on_worker_and_event_is_typed(self) -> None:
         caller_thread = threading.get_ident()
         delivered: list[tuple[dict[str, object], int]] = []

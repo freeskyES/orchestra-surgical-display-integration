@@ -14,6 +14,17 @@
 
 `POST /api/v1/events`는 Python 연동 코드가 내부적으로 사용하는 고급 API입니다. 로봇 개발자가 직접 전체 요청을 만들 필요가 없습니다.
 
+Python에서는 Display 1과 같은 형태로 호출할 수 있습니다.
+
+```python
+from orchestra_surgical_display import SurgicalDisplayClient
+
+display = SurgicalDisplayClient("http://10.77.0.11:8080")
+display.state("COMMAND_READY")
+display.state("MANUAL_MOVING", direction="cam_left")
+display.close()
+```
+
 ## 주소
 
 | 환경 | Base URL |

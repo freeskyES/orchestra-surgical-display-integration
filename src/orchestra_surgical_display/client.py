@@ -170,6 +170,10 @@ class SurgicalDisplayClient:
             self._latest_state = envelope
         return self._enqueue_latest(envelope)
 
+    def state(self, state: str, **payload: Any) -> bool:
+        """Send a display State with only the optional values the screen needs."""
+        return self.publish_state(state, payload)
+
     def close(self, drain_timeout: float = 1.0) -> None:
         deadline = time.monotonic() + max(0.0, drain_timeout)
         while self._queue.unfinished_tasks and time.monotonic() < deadline:
