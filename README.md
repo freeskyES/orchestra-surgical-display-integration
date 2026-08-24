@@ -146,7 +146,7 @@ if display_observer is not None:
 - heartbeat는 presence만 갱신하며 화면 State 이력에는 쌓이지 않습니다.
 - 내부 예외 문자열 대신 정규화한 `safety_reason_code`만 전송합니다.
 
-API 필드와 응답 예시는 [API 계약 문서](docs/API_CONTRACT_KO.md)를 확인하세요. GitHub Pages가 활성화되면 Swagger 문서는 <https://freeskyes.github.io/orchestra-surgical-display-integration/>에서 볼 수 있습니다.
+API 필드와 응답 예시는 [API 계약 문서](docs/API_CONTRACT_KO.md)를 확인하세요. 공개 Swagger 문서는 <https://freeskyes.github.io/orchestra-surgical-display-integration/api/>에서 볼 수 있습니다.
 
 ## 테스트
 
