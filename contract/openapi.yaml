@@ -5,7 +5,6 @@ info:
   description: >-
     RB-Y1 수술로봇 상태를 Lenovo Y700 화면으로 보내는 단방향 API입니다.
     첫 연동은 state 하나만 필수인 POST /api/v1/state 사용을 권장합니다.
-    로봇 제어 기능은 제공하지 않습니다.
 servers:
   - url: http://10.77.0.11:8080
     description: Recommended Display 2 Y700 address

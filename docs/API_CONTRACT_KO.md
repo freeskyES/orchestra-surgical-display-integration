@@ -43,8 +43,6 @@ display.close()
 | `POST` | `/api/v1/state` | 처음 연동하는 간편 State 요청 |
 | `POST` | `/api/v1/events` | Python 연동 코드가 내부적으로 사용하는 고급 이벤트 |
 
-로봇을 제어하거나 명령을 반환하는 endpoint는 없습니다.
-
 ## 간편 State 요청
 
 기본 State는 다음처럼 보냅니다.
