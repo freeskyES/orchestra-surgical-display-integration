@@ -43,7 +43,7 @@
     </header>
     <section class="guide">
       <div class="wrap grid">
-        <div class="card"><strong>처음 연동</strong><span><code>POST /api/v1/state</code>에 State 하나만 보내세요. 나머지 값은 자동 생성됩니다.</span></div>
+        <div class="card"><strong>처음 연동</strong><span><a href="#/%EC%B2%98%EC%9D%8C%20%EC%97%B0%EB%8F%99/postSimpleSurgicalState"><code>POST /api/v1/state</code></a>에 State 하나만 보내세요. 나머지 값은 자동 생성됩니다.</span></div>
         <div class="card"><strong>로컬 검증</strong><span><code>python3 -m orchestra_surgical_display.simulator</code></span></div>
         <div class="card"><strong>연동 가이드</strong><span><a href="https://github.com/freeskyES/orchestra-surgical-display-integration">README와 적용 위치 보기</a></span></div>
       </div>
@@ -56,6 +56,9 @@
         dom_id: "#swagger-ui",
         deepLinking: true,
         displayRequestDuration: true,
+        docExpansion: "list",
+        filter: true,
+        supportedSubmitMethods: [],
         presets: [SwaggerUIBundle.presets.apis, SwaggerUIBundle.SwaggerUIStandalonePreset],
         layout: "BaseLayout"
       });
