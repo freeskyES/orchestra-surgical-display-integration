@@ -2,7 +2,7 @@
 
 ## 적용 범위
 
-Display 연동은 로봇 상태를 읽어 외부 화면에 복제하는 observer입니다. 기존 모션 owner, 명령 승인, 안전 제한과 종료 판단을 변경하지 않습니다.
+Display 연동은 현재 로봇 상태를 읽어 Lenovo 화면에 보여주는 기능입니다. 기존 로봇 동작, 명령 승인, 안전 제한과 종료 판단은 변경하지 않습니다.
 
 ## 1. 패키지 설치
 
@@ -21,11 +21,11 @@ export ORCHESTRA_SURGICAL_DISPLAY_URL=http://10.77.0.11:8080
 export ORCHESTRA_SURGICAL_DISPLAY_POLL_SECONDS=0.1
 ```
 
-URL이 없으면 `start_runtime_observer_from_env()`는 `None`을 반환합니다. URL 또는 polling 값이 잘못되어도 로봇 시작을 중단하지 않습니다.
+URL이 없으면 `start_runtime_observer_from_env()`는 `None`을 반환합니다. URL 또는 상태 확인 주기 값이 잘못되어도 로봇 시작을 중단하지 않습니다.
 
-## 3. observer 시작과 종료
+## 3. Display 연동 모듈 시작과 종료
 
-`VoiceCoordinator`와 servo 연결을 마친 뒤 일반 Python orchestration 경로에서 시작합니다.
+`VoiceCoordinator`와 servo 연결을 마친 뒤 일반 Python 실행 코드에서 시작합니다.
 
 ```python
 from orchestra_surgical_display import start_runtime_observer_from_env
@@ -37,16 +37,16 @@ display_observer = start_runtime_observer_from_env(
 )
 ```
 
-종료 `finally` 블록에서는 controller와 servo 참조가 유효할 때 observer를 먼저 닫습니다.
+종료 `finally` 블록에서는 controller와 servo를 종료하기 전에 Display 연동 모듈을 먼저 닫습니다.
 
 ```python
 if display_observer is not None:
     display_observer.stop()
 ```
 
-## 4. 음성 단계 Hook
+## 4. 음성 인식 결과 연결
 
-기존 voice telemetry 갱신 직후 같은 phase를 전달합니다.
+기존 음성 인식 단계가 바뀌는 지점에서 같은 값을 전달합니다.
 
 ```python
 if display_observer is not None:
@@ -84,7 +84,7 @@ if display_observer is not None:
 
 ## 6. 상태 계산
 
-별도 READY 이벤트가 없어도 observer가 기존 읽기 API를 조합해 `COMMAND_READY`를 계산할 수 있습니다.
+별도 READY 이벤트가 없어도 Display 연동 모듈이 기존 상태 조회 결과를 조합해 `COMMAND_READY`를 계산할 수 있습니다.
 
 ```text
 startup 완료
@@ -98,9 +98,9 @@ AND motion/visual/fault/protection 없음
 ## 7. 현장 적용 전 검증
 
 1. 환경 변수 없이 기존 로봇 시작·동작·종료가 동일한지 확인
-2. 로컬 receiver로 State와 음성 성공·실패 payload 확인
+2. PC 테스트 서버에서 State와 음성 성공·실패 값 확인
 3. 닿지 않는 URL에서도 로봇 명령과 종료가 정상인지 확인
-4. Lenovo API 연결 후 화면 전환과 presence 복구 확인
-5. 연동 전후 100 Hz·500 Hz deadline miss와 cycle time 비교
+4. Lenovo API 연결 후 화면 전환과 연결 상태 복구 확인
+5. 연동 전후 100 Hz·500 Hz 실시간 제어 주기가 느려지지 않는지 확인
 
-100 Hz 또는 500 Hz callback 안에서 `poll_once()`나 HTTP 관련 함수를 직접 호출하지 않습니다.
+100 Hz 또는 500 Hz 실시간 제어 함수 안에서 `poll_once()`나 HTTP 관련 함수를 직접 호출하지 않습니다.
