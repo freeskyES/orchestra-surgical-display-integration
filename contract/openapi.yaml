@@ -3,14 +3,24 @@ info:
   title: Orchestra Surgical Display API
   version: 0.3.0
   description: >-
-    Read-only robot-to-tablet event API for the RB-Y1 surgical display.
-    It accepts display telemetry only and exposes no robot control operation.
+    RB-Y1 수술로봇 상태를 Lenovo Y700 화면으로 보내는 단방향 API입니다.
+    첫 연동은 state 하나만 필수인 POST /api/v1/state 사용을 권장합니다.
+    로봇 제어 기능은 제공하지 않습니다.
 servers:
   - url: http://10.77.0.11:8080
     description: Recommended Display 2 Y700 address
+tags:
+  - name: 처음 연동
+    description: 로봇 개발자가 먼저 사용할 간편 State API
+  - name: 조회
+    description: 태블릿 서버와 최신 화면 상태 확인
+  - name: 고급 연동
+    description: Python 연동 코드가 내부적으로 사용하는 전체 이벤트 API
 paths:
   /api/v1/health:
     get:
+      tags: [조회]
+      summary: 태블릿 수신 서버 상태 확인
       operationId: getHealth
       responses:
         "200":
@@ -21,6 +31,8 @@ paths:
                 $ref: "#/components/schemas/HealthResponse"
   /api/v1/robots:
     get:
+      tags: [조회]
+      summary: 최신 로봇 State와 연결 상태 확인
       operationId: getRobotSnapshots
       responses:
         "200":
@@ -31,14 +43,39 @@ paths:
                 $ref: "#/components/schemas/RobotsResponse"
   /api/v1/state:
     post:
-      operationId: postSimpleState
-      description: Development and simulator shortcut. The tablet creates the event envelope.
+      tags: [처음 연동]
+      summary: 로봇 State 간편 전송
+      operationId: postSimpleSurgicalState
+      description: >-
+        state만 필수입니다. robot_id를 생략하면 rby1-surgical을 사용합니다.
+        이벤트 ID, 세션, 순번, 시간과 중요도는 태블릿이 자동 생성합니다.
+        방향이나 음성 인식 결과가 필요할 때만 payload를 추가합니다.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: "#/components/schemas/SimpleSurgicalStateRequest"
+            examples:
+              minimum:
+                summary: State만 전송
+                value:
+                  state: COMMAND_READY
+              manualDirection:
+                summary: 이동 방향 추가
+                value:
+                  state: MANUAL_MOVING
+                  payload:
+                    direction: cam_left
+              voiceRecognized:
+                summary: 음성 인식 성공 추가
+                value:
+                  state: COMMAND_READY
+                  payload:
+                    voice_phase: complete
+                    recognized_text: 왼쪽
+                    recognition_result: recognized
+                    command_result: accepted
       responses:
         "202":
           description: State accepted
@@ -54,8 +91,12 @@ paths:
           $ref: "#/components/responses/InvalidRequest"
   /api/v1/events:
     post:
+      tags: [고급 연동]
+      summary: 전체 상태 또는 연결 확인 이벤트 전송
       operationId: postSurgicalEvent
-      description: Production state and heartbeat event endpoint.
+      description: >-
+        Python 연동 코드가 내부적으로 사용하는 고급 API입니다.
+        일반적인 로봇 연동에서는 직접 호출하거나 아래 필드를 만들 필요가 없습니다.
       requestBody:
         required: true
         content:
@@ -222,12 +263,14 @@ components:
           $ref: "#/components/schemas/SurgicalPayload"
     SimpleSurgicalStateRequest:
       type: object
+      description: 첫 연동에 사용하는 간편 요청. state 외의 값은 모두 선택입니다.
       additionalProperties: false
       required: [state]
       properties:
         robot_id:
           type: string
           default: rby1-surgical
+          description: 생략하면 rby1-surgical을 사용합니다.
         state:
           $ref: "#/components/schemas/SurgicalState"
         payload:

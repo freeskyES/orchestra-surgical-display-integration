@@ -25,6 +25,22 @@ class SimulatorTest(unittest.TestCase):
         self.server.server_close()
         self.thread.join(timeout=2)
 
+    def test_minimum_state_request_generates_missing_event_values(self) -> None:
+        status, body = self._post(
+            "/api/v1/state",
+            {"state": "COMMAND_READY"},
+        )
+
+        self.assertEqual(HTTPStatus.ACCEPTED, status)
+        self.assertTrue(body["accepted"])
+        uuid.UUID(body["event_id"])
+
+        robot = self._get("/api/v1/robots")["robots"][0]
+        self.assertEqual("rby1-surgical", robot["robot_id"])
+        self.assertEqual("simulator-state", robot["session_id"])
+        self.assertEqual(1, robot["sequence"])
+        self.assertEqual("INFO", robot["severity"])
+
     def test_simple_state_is_visible_with_voice_and_direction_payload(self) -> None:
         status, body = self._post(
             "/api/v1/state",

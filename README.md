@@ -10,6 +10,36 @@ Lenovo가 없어도 PC에서 먼저 전송 결과를 확인할 수 있는 테스
 
 이 연결은 `로봇 → Display` 단방향입니다. Display에서 로봇을 움직이거나 명령을 보내는 기능은 없습니다.
 
+## 가장 간단한 연동
+
+일반 State는 `state` 하나만 보내면 됩니다.
+
+```bash
+curl -X POST http://10.77.0.11:8080/api/v1/state \
+  -H 'Content-Type: application/json' \
+  -d '{"state":"COMMAND_READY"}'
+```
+
+방향이나 음성 인식 결과가 화면에 필요할 때만 추가 정보를 붙입니다.
+
+```json
+{
+  "state": "MANUAL_MOVING",
+  "payload": {
+    "direction": "cam_left"
+  }
+}
+```
+
+`robot_id`, 이벤트 ID, 세션, 순번, 전송 시간과 중요도는 태블릿이 자동 생성합니다. Python 연동 코드를 사용해도 개발자는 아래처럼 State와 필요한 추가 정보만 전달하면 되고, 나머지는 연동 코드가 자동 생성합니다.
+
+```python
+display.publish_state("COMMAND_READY")
+display.publish_state("MANUAL_MOVING", {"direction": "cam_left"})
+```
+
+전체 필드가 보이는 `POST /api/v1/events`는 Python 연동 코드가 내부적으로 사용합니다. 일반 연동에서 직접 호출할 필요가 없습니다.
+
 ## 한눈에 보기
 
 ```mermaid
@@ -125,6 +155,19 @@ Display 주소를 설정하지 않았거나 주소가 잘못되어도 로봇 프
 | `PROTECTIVE_RECOVERY` | `COMMAND_READY` |
 
 원본 State는 태블릿 진단 데이터에 유지하고 화면 표시 단계에서만 변환합니다. 전체 목록과 enum은 [`contract/states.json`](contract/states.json), HTTP 명세는 [`contract/openapi.yaml`](contract/openapi.yaml)을 기준으로 합니다.
+
+## 개발자가 직접 정하는 값
+
+| 값 | 언제 보내나요? | 필수 여부 |
+|---|---|---|
+| `state` | 화면 상태가 바뀔 때 | 항상 필수 |
+| `direction` | `MANUAL_MOVING`의 6방향을 보여줄 때 | 해당 상태에서만 |
+| `direction_scale` | 1배가 아닌 이동 배율을 보여줄 때 | 선택 |
+| 음성 인식 값 | 듣기·인식 성공·실패 화면을 보여줄 때 | 해당 단계에서만 |
+| `visual_phase` | Visual Servoing의 추적·대상 유실 등을 구분할 때 | 선택 |
+| `safety_reason_code` | `ERROR`의 확인 코드를 보여줄 때 | 선택 |
+
+UUID, 세션 ID, 순번, 시간, 중요도, 연결 확인 신호는 직접 만들지 않습니다.
 
 ## 음성 인식 결과 보내기
 

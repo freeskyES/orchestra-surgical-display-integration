@@ -2,6 +2,18 @@
 
 기준 파일은 [`contract/openapi.yaml`](../contract/openapi.yaml)입니다. 이 문서는 로봇 개발자가 자주 확인하는 요청 형식과 운영 원칙을 요약합니다.
 
+## 결론
+
+첫 연동에서는 `POST /api/v1/state`를 사용합니다. 필수값은 `state` 하나입니다.
+
+```json
+{"state":"COMMAND_READY"}
+```
+
+방향이나 음성 인식 결과가 필요한 화면에서만 `payload`를 추가합니다. 이벤트 ID, 로봇 ID 기본값, 세션, 순번, 시간과 중요도는 태블릿이 자동 생성합니다.
+
+`POST /api/v1/events`는 Python 연동 코드가 내부적으로 사용하는 고급 API입니다. 로봇 개발자가 직접 전체 요청을 만들 필요가 없습니다.
+
 ## 주소
 
 | 환경 | Base URL |
@@ -17,12 +29,62 @@
 |---|---|---|
 | `GET` | `/api/v1/health` | 수신 서버 확인 |
 | `GET` | `/api/v1/robots` | 최신 State와 presence 확인 |
-| `POST` | `/api/v1/state` | 수동 시험용 축약 요청 |
-| `POST` | `/api/v1/events` | SDK가 사용하는 운영 이벤트 |
+| `POST` | `/api/v1/state` | 처음 연동하는 간편 State 요청 |
+| `POST` | `/api/v1/events` | Python 연동 코드가 내부적으로 사용하는 고급 이벤트 |
 
 로봇을 제어하거나 명령을 반환하는 endpoint는 없습니다.
 
-## 운영 이벤트 예시
+## 간편 State 요청
+
+기본 State는 다음처럼 보냅니다.
+
+```bash
+curl -X POST http://127.0.0.1:8080/api/v1/state \
+  -H 'Content-Type: application/json' \
+  -d '{"state":"COMMAND_READY"}'
+```
+
+수동 이동 방향이 필요할 때만 추가합니다.
+
+```json
+{
+  "state": "MANUAL_MOVING",
+  "payload": {
+    "direction": "cam_left"
+  }
+}
+```
+
+음성 인식 성공 화면이 필요할 때만 다음 값을 추가합니다.
+
+```json
+{
+  "state": "COMMAND_READY",
+  "payload": {
+    "voice_phase": "complete",
+    "recognized_text": "왼쪽",
+    "recognition_result": "recognized",
+    "command_result": "accepted"
+  }
+}
+```
+
+정상 수신은 HTTP `202 Accepted`입니다.
+
+## 누가 값을 만드나요?
+
+| 값 | 담당 |
+|---|---|
+| `state` | 로봇 개발자가 상태 전환 시 전달 |
+| 방향·배율 | 해당 이동 화면에서만 선택 전달 |
+| 음성 인식 단계·결과 | 해당 음성 화면에서만 선택 전달 |
+| `robot_id` | 생략 시 태블릿이 `rby1-surgical` 사용 |
+| 이벤트 ID·세션·순번·시간·중요도 | 태블릿 또는 Python 연동 코드가 자동 생성 |
+| 연결 확인 신호 | Python 연동 코드가 자동 전송 |
+
+## 고급 이벤트 예시
+
+아래 전체 형식은 Python 연동 코드가 내부적으로 생성합니다. 직접 HTTP 클라이언트를 새로 만드는 경우가 아니면 사용할 필요가 없습니다.
 
 ```json
 {
@@ -61,19 +123,7 @@
 
 같은 `event_id`를 재전송하면 `duplicate=true`와 함께 `202`를 반환합니다.
 
-## 축약 State 요청
-
-수동 테스트에서만 사용합니다. 수신기가 envelope을 생성합니다.
-
-```bash
-curl -X POST http://127.0.0.1:8080/api/v1/state \
-  -H 'Content-Type: application/json' \
-  -d '{"robot_id":"rby1-surgical","state":"COMMAND_READY","payload":{"voice_phase":"listening"}}'
-```
-
-운영 코드에서는 SDK와 `/api/v1/events`를 사용합니다.
-
-## Payload 핵심 enum
+## 추가 정보에 사용할 값
 
 | 필드 | 값 |
 |---|---|
