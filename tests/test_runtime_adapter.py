@@ -25,6 +25,17 @@ class _Publisher:
         return self.result
 
 
+class _Clock:
+    def __init__(self) -> None:
+        self.now = 100.0
+
+    def __call__(self) -> float:
+        return self.now
+
+    def advance(self, seconds: float) -> None:
+        self.now += seconds
+
+
 class RuntimeAdapterTest(unittest.TestCase):
     def test_components_map_manual_direction_and_voice_feedback(self) -> None:
         snapshot = RuntimeSnapshot.from_components(
@@ -194,6 +205,85 @@ class RuntimeAdapterTest(unittest.TestCase):
         self.assertEqual("unrecognized", payload["recognition_result"])
         self.assertEqual("rejected", payload["command_result"])
         self.assertEqual("complete", payload["voice_phase"])
+
+    def test_accepted_voice_result_emits_request_received_then_motion(self) -> None:
+        publisher = _Publisher()
+        clock = _Clock()
+        status = SimpleNamespace(active=False, label="hold", fault=None)
+        observer = SoloSurgeryRuntimeObserver(
+            SoloSurgeryDisplayAdapter(publisher),
+            controller=SimpleNamespace(loop_status=lambda: status),
+            servo=SimpleNamespace(is_enabled=lambda: False),
+            coordinator=SimpleNamespace(
+                session_active=True,
+                gripper=None,
+                arm_state=lambda: {},
+            ),
+            clock=clock,
+        )
+
+        observer.set_voice_result("왼쪽", "motion", executed=True)
+        self.assertTrue(observer.poll_once())
+        self.assertEqual("REQUEST_RECEIVED", publisher.events[-1][0])
+
+        clock.advance(0.7)
+        status.active = True
+        status.label = "button_left_cam_left"
+        self.assertTrue(observer.poll_once())
+        self.assertEqual("MANUAL_MOVING", publisher.events[-1][0])
+
+    def test_motion_completion_emits_completed_then_ready(self) -> None:
+        publisher = _Publisher()
+        clock = _Clock()
+        status = SimpleNamespace(
+            active=True,
+            label="button_left_cam_left",
+            fault=None,
+        )
+        observer = SoloSurgeryRuntimeObserver(
+            SoloSurgeryDisplayAdapter(publisher),
+            controller=SimpleNamespace(loop_status=lambda: status),
+            servo=SimpleNamespace(is_enabled=lambda: False),
+            coordinator=SimpleNamespace(
+                session_active=True,
+                gripper=None,
+                arm_state=lambda: {},
+            ),
+            clock=clock,
+        )
+
+        self.assertTrue(observer.poll_once())
+        self.assertEqual("MANUAL_MOVING", publisher.events[-1][0])
+        status.active = False
+        status.label = "hold"
+        clock.advance(0.1)
+        self.assertTrue(observer.poll_once())
+        self.assertEqual("COMPLETED", publisher.events[-1][0])
+        clock.advance(0.9)
+        self.assertTrue(observer.poll_once())
+        self.assertEqual("COMMAND_READY", publisher.events[-1][0])
+
+    def test_safety_state_preempts_transient_feedback(self) -> None:
+        publisher = _Publisher()
+        clock = _Clock()
+        status = SimpleNamespace(active=False, label="hold", fault=None)
+        observer = SoloSurgeryRuntimeObserver(
+            SoloSurgeryDisplayAdapter(publisher),
+            controller=SimpleNamespace(loop_status=lambda: status),
+            servo=SimpleNamespace(is_enabled=lambda: False),
+            coordinator=SimpleNamespace(
+                session_active=True,
+                gripper=None,
+                arm_state=lambda: {},
+            ),
+            clock=clock,
+        )
+
+        observer.set_voice_result("왼쪽", "motion", executed=True)
+        status.active = True
+        status.label = "rcm_protective_hold"
+        self.assertTrue(observer.poll_once())
+        self.assertEqual("PROTECTIVE_RECOVERY", publisher.events[-1][0])
 
     def test_runtime_observer_component_failure_is_isolated(self) -> None:
         adapter = SoloSurgeryDisplayAdapter(_Publisher())

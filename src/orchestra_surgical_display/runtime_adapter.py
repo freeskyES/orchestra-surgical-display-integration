@@ -4,6 +4,7 @@ from dataclasses import dataclass, replace
 import os
 import re
 import threading
+import time
 from typing import Any, Mapping, Protocol
 
 from .client import SurgicalDisplayClient
@@ -252,17 +253,36 @@ class SoloSurgeryDisplayAdapter:
     ) -> bool:
         """Queue a changed snapshot and never leak Display errors to the robot."""
 
-        with self._lock:
-            self._stats = replace(self._stats, observed=self._stats.observed + 1)
         try:
             event = resolve_runtime_event(snapshot)
+            return self.publish_event(
+                event,
+                force=force,
+                occurred_at=occurred_at,
+            )
+        except Exception:
             with self._lock:
-                if not force and event == self._last_event:
-                    self._stats = replace(
-                        self._stats,
-                        deduplicated=self._stats.deduplicated + 1,
-                    )
-                    return False
+                self._stats = replace(self._stats, failed=self._stats.failed + 1)
+            return False
+
+    def publish_event(
+        self,
+        event: ResolvedRuntimeEvent,
+        *,
+        force: bool = False,
+        occurred_at: str | None = None,
+    ) -> bool:
+        """Queue one already-resolved event without blocking the robot caller."""
+
+        with self._lock:
+            self._stats = replace(self._stats, observed=self._stats.observed + 1)
+            if not force and event == self._last_event:
+                self._stats = replace(
+                    self._stats,
+                    deduplicated=self._stats.deduplicated + 1,
+                )
+                return False
+        try:
             accepted = bool(
                 self._publisher.publish_state(
                     event.state,
@@ -270,23 +290,21 @@ class SoloSurgeryDisplayAdapter:
                     occurred_at=occurred_at,
                 )
             )
-            with self._lock:
-                if accepted:
-                    self._last_event = event
-                    self._stats = replace(
-                        self._stats,
-                        published=self._stats.published + 1,
-                    )
-                else:
-                    self._stats = replace(
-                        self._stats,
-                        failed=self._stats.failed + 1,
-                    )
-            return accepted
         except Exception:
-            with self._lock:
-                self._stats = replace(self._stats, failed=self._stats.failed + 1)
-            return False
+            accepted = False
+        with self._lock:
+            if accepted:
+                self._last_event = event
+                self._stats = replace(
+                    self._stats,
+                    published=self._stats.published + 1,
+                )
+            else:
+                self._stats = replace(
+                    self._stats,
+                    failed=self._stats.failed + 1,
+                )
+        return accepted
 
     def close(self) -> None:
         if not self._close_publisher:
@@ -318,6 +336,10 @@ class SoloSurgeryRuntimeObserver:
         poll_interval: float = 0.1,
         startup_complete: bool = True,
         close_adapter: bool = False,
+        request_dwell: float = 0.6,
+        result_dwell: float = 1.2,
+        completed_dwell: float = 0.8,
+        clock: Any = time.monotonic,
     ) -> None:
         if poll_interval < 0.02:
             raise ValueError("poll_interval must be at least 0.02 seconds")
@@ -328,6 +350,10 @@ class SoloSurgeryRuntimeObserver:
         self._poll_interval = float(poll_interval)
         self._startup_complete = bool(startup_complete)
         self._close_adapter = bool(close_adapter)
+        self._request_dwell = max(0.0, float(request_dwell))
+        self._result_dwell = max(0.0, float(result_dwell))
+        self._completed_dwell = max(0.0, float(completed_dwell))
+        self._clock = clock
         self._lock = threading.Lock()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
@@ -338,6 +364,10 @@ class SoloSurgeryRuntimeObserver:
         self._command_result: str | None = None
         self._visual_phase: str | None = None
         self._gripper_requested: str | None = None
+        self._request_until = 0.0
+        self._result_until = 0.0
+        self._completed_until = 0.0
+        self._last_persistent_state: str | None = None
 
     def start(self) -> "SoloSurgeryRuntimeObserver":
         with self._lock:
@@ -386,6 +416,13 @@ class SoloSurgeryRuntimeObserver:
             )
             self._command_action = action_code or None
             self._command_result = "accepted" if executed else "rejected"
+            now = float(self._clock())
+            if executed and action_code != "SESSION_END":
+                self._request_until = now + self._request_dwell
+                self._result_until = 0.0
+            else:
+                self._request_until = 0.0
+                self._result_until = now + self._result_dwell
 
     def set_visual_phase(self, phase: str | None) -> None:
         with self._lock:
@@ -403,6 +440,7 @@ class SoloSurgeryRuntimeObserver:
             arm_state = self._coordinator.arm_state()
             session_active = bool(getattr(self._coordinator, "session_active"))
             servo_enabled = bool(self._servo.is_enabled())
+            now = float(self._clock())
             with self._lock:
                 voice_phase = self._voice_phase
                 recognized_text = self._recognized_text
@@ -412,6 +450,9 @@ class SoloSurgeryRuntimeObserver:
                 visual_phase = self._visual_phase
                 startup_complete = self._startup_complete
                 gripper_requested = self._gripper_requested
+                request_until = self._request_until
+                result_until = self._result_until
+                completed_until = self._completed_until
             gripper = getattr(self._coordinator, "gripper", None)
             snapshot = RuntimeSnapshot.from_components(
                 status,
@@ -429,7 +470,53 @@ class SoloSurgeryRuntimeObserver:
                 gripper_requested=gripper_requested,
                 gripper_health="ok" if gripper is not None else "unavailable",
             )
-            return self._adapter.observe(snapshot, force=force)
+            persistent = resolve_runtime_event(snapshot)
+            with self._lock:
+                previous_state = self._last_persistent_state
+                self._last_persistent_state = persistent.state
+                completed_transition = (
+                    previous_state in {
+                        "MANUAL_MOVING",
+                        "PEDAL_MOVING",
+                        "VISUAL_SERVOING",
+                        "RETURNING",
+                    }
+                    and persistent.state in {"COMMAND_READY", "HOLDING"}
+                    and command_action not in {"STOP", "SERVO_OFF", "SESSION_END"}
+                )
+                if completed_transition:
+                    start_at = max(now, self._request_until)
+                    self._completed_until = start_at + self._completed_dwell
+                completed_until = self._completed_until
+
+            if persistent.state in {"ERROR", "PROTECTIVE_RECOVERY", "SAFE_WAIT"}:
+                with self._lock:
+                    self._request_until = 0.0
+                    self._result_until = 0.0
+                    self._completed_until = 0.0
+                event = persistent
+            elif now < request_until:
+                event = ResolvedRuntimeEvent("REQUEST_RECEIVED", persistent.payload)
+            elif now < result_until:
+                event = persistent
+            elif now < completed_until:
+                event = ResolvedRuntimeEvent("COMPLETED", persistent.payload)
+            else:
+                event = persistent
+            published = self._adapter.publish_event(event, force=force)
+            if (
+                persistent.state in {"COMMAND_READY", "HOLDING"}
+                and now >= request_until
+                and now >= result_until
+                and now >= completed_until
+                and command_action != "SESSION_END"
+            ):
+                with self._lock:
+                    self._recognized_text = None
+                    self._recognition_result = None
+                    self._command_action = None
+                    self._command_result = None
+            return published
         except Exception:
             # The observer is diagnostics-only. Component teardown races or a
             # malformed optional field must never affect robot operation.

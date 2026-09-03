@@ -10,7 +10,7 @@ from orchestra_surgical_display.state_resolver import (
 
 
 class SurgicalStateResolverTest(unittest.TestCase):
-    def test_compatibility_hold_signals_map_to_command_ready(self) -> None:
+    def test_compatibility_hold_signals_map_to_agreed_presentations(self) -> None:
         busy = SurgicalStateSignals(
             visual_servoing=True,
             pedal_moving=True,
@@ -19,7 +19,7 @@ class SurgicalStateResolverTest(unittest.TestCase):
             error=True,
         )
         self.assertEqual("ERROR", resolve_state(busy))
-        self.assertEqual("COMMAND_READY", resolve_state(busy.__class__(
+        self.assertEqual("SAFE_WAIT", resolve_state(busy.__class__(
             visual_servoing=True,
             holding=True,
             protective_recovery=True,

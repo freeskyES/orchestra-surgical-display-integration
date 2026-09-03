@@ -77,7 +77,7 @@ if display_observer is not None:
 `VoiceCoordinator.arm_state()`에 현재 선택 배율을 읽기 전용 값으로 포함합니다.
 
 ```python
-"selected_scale": self._selected_scale,
+"selected_scale": self._operator_step_scale,
 ```
 
 방향 enum은 `cam_left`, `cam_right`, `cam_up`, `cam_down`, `insert`, `retract`입니다. 배율은 `direction_scale`로 전송하며 계약 범위는 0.1~3.0입니다.
@@ -93,7 +93,7 @@ AND motion/visual/fault/protection 없음
 → COMMAND_READY
 ```
 
-상태 우선순위는 오류와 보호 상태가 이동 상태보다 앞섭니다. `HOLDING`, `PROTECTIVE_RECOVERY`, `PEDAL_MOVING` 원본은 진단을 위해 그대로 전송되고, 태블릿이 화면 표시 시 호환 매핑합니다.
+상태 우선순위는 오류와 보호 상태가 이동 상태보다 앞섭니다. 실행 승인 직후에는 `REQUEST_RECEIVED`, 정상 동작 종료 직후에는 `COMPLETED`를 observer가 짧게 전송합니다. `HOLDING`, `PROTECTIVE_RECOVERY`, `PEDAL_MOVING` 원본은 진단을 위해 그대로 전송되고, 태블릿이 화면 표시 시 호환 매핑합니다.
 
 ## 7. 현장 적용 전 검증
 

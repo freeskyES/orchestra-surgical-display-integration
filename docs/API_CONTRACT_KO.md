@@ -68,7 +68,7 @@ curl -X POST http://127.0.0.1:8080/api/v1/state \
 
 ```json
 {
-  "state": "COMMAND_READY",
+  "state": "REQUEST_RECEIVED",
   "payload": {
     "voice_phase": "complete",
     "recognized_text": "왼쪽",
@@ -90,6 +90,23 @@ curl -X POST http://127.0.0.1:8080/api/v1/state \
 | `robot_id` | 생략 시 태블릿이 `rby1-surgical` 사용 |
 | 이벤트 ID·세션·순번·시간·중요도 | 태블릿 또는 Python 연동 코드가 자동 생성 |
 | 연결 확인 신호 | Python 연동 코드가 자동 전송 |
+
+## 화면 State
+
+| State | 의미 |
+|---|---|
+| `STARTING` | 시스템 준비 |
+| `AWAITING_START` | “스코프 시작” 명령 대기 |
+| `COMMAND_READY` | 음성 명령 대기·인식 결과 |
+| `REQUEST_RECEIVED` | 실행 승인 직후의 짧은 확인 |
+| `MANUAL_MOVING` | 수동 이동 |
+| `VISUAL_SERVOING` | 화면 추종 |
+| `RETURNING` | 준비 위치 복귀 |
+| `COMPLETED` | 정상 동작 종료 직후의 짧은 완료 표시 |
+| `SAFE_WAIT` | 보호·복구 대기 |
+| `ERROR` | 시스템 확인 필요 |
+
+`PEDAL_MOVING`, `HOLDING`, `PROTECTIVE_RECOVERY`는 원본 진단 State로 유지하며 화면에서는 각각 `MANUAL_MOVING`, `COMMAND_READY`, `SAFE_WAIT`로 표시합니다. 안전 State는 모든 피드백·동작 State보다 우선합니다.
 
 ## 고급 이벤트 예시
 

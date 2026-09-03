@@ -17,12 +17,16 @@ class SurgicalStateSignals:
 
 
 def resolve_state(signals: SurgicalStateSignals) -> str:
-    """Resolve robot signals into the seven public presentation states."""
+    """Resolve persistent signals into the agreed presentation states.
+
+    REQUEST_RECEIVED and COMPLETED are short edge events emitted by the
+    runtime adapter and therefore are not derived from a snapshot here.
+    """
     transport_state = resolve_transport_state(signals)
     return {
         "PEDAL_MOVING": "MANUAL_MOVING",
         "HOLDING": "COMMAND_READY",
-        "PROTECTIVE_RECOVERY": "COMMAND_READY",
+        "PROTECTIVE_RECOVERY": "SAFE_WAIT",
     }.get(transport_state, transport_state)
 
 

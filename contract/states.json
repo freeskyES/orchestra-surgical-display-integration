@@ -1,28 +1,34 @@
 {
-  "contract_version": "0.3.0",
+  "contract_version": "0.4.0",
   "schema_version": 1,
   "robot_id_example": "rby1-surgical",
   "presentation_states": [
     "STARTING",
     "AWAITING_START",
     "COMMAND_READY",
+    "REQUEST_RECEIVED",
     "MANUAL_MOVING",
     "VISUAL_SERVOING",
     "RETURNING",
+    "COMPLETED",
+    "SAFE_WAIT",
     "ERROR"
   ],
   "compatibility_states": {
     "PEDAL_MOVING": "MANUAL_MOVING",
     "HOLDING": "COMMAND_READY",
-    "PROTECTIVE_RECOVERY": "COMMAND_READY"
+    "PROTECTIVE_RECOVERY": "SAFE_WAIT"
   },
   "transport_states": [
     "STARTING",
     "AWAITING_START",
     "COMMAND_READY",
+    "REQUEST_RECEIVED",
     "MANUAL_MOVING",
     "VISUAL_SERVOING",
     "RETURNING",
+    "COMPLETED",
+    "SAFE_WAIT",
     "ERROR",
     "PEDAL_MOVING",
     "HOLDING",
@@ -30,16 +36,23 @@
   ],
   "priority": [
     "ERROR",
+    "SAFE_WAIT",
     "PROTECTIVE_RECOVERY",
     "HOLDING",
     "RETURNING",
     "PEDAL_MOVING",
     "VISUAL_SERVOING",
     "MANUAL_MOVING",
+    "COMPLETED",
+    "REQUEST_RECEIVED",
     "STARTING",
     "AWAITING_START",
     "COMMAND_READY"
   ],
+  "transient_states": {
+    "REQUEST_RECEIVED": "accepted 명령 직후 0.6초",
+    "COMPLETED": "동작 종료 직후 0.8초"
+  },
   "payload_fields": [
     "step",
     "session_active",

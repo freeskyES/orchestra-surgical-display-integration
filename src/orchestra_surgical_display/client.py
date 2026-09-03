@@ -17,9 +17,12 @@ PUBLIC_STATES = frozenset(
         "STARTING",
         "AWAITING_START",
         "COMMAND_READY",
+        "REQUEST_RECEIVED",
         "MANUAL_MOVING",
         "VISUAL_SERVOING",
         "RETURNING",
+        "COMPLETED",
+        "SAFE_WAIT",
         "ERROR",
         "PEDAL_MOVING",
         "HOLDING",
@@ -299,7 +302,7 @@ class SurgicalDisplayClient:
 def _severity_for(state: str) -> str:
     if state == "ERROR":
         return "ERROR"
-    if state in {"HOLDING", "PROTECTIVE_RECOVERY"}:
+    if state in {"SAFE_WAIT", "HOLDING", "PROTECTIVE_RECOVERY"}:
         return "WARNING"
     return "INFO"
 

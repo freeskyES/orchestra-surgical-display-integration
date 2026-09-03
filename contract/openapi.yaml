@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Orchestra Surgical Display API
-  version: 0.3.0
+  version: 0.4.0
   description: >-
     RB-Y1 수술로봇 상태를 Lenovo Y700 화면으로 보내는 단방향 API입니다.
     첫 연동은 state 하나만 필수인 POST /api/v1/state 사용을 권장합니다.
@@ -69,7 +69,7 @@ paths:
               voiceRecognized:
                 summary: 음성 인식 성공 추가
                 value:
-                  state: COMMAND_READY
+                  state: REQUEST_RECEIVED
                   payload:
                     voice_phase: complete
                     recognized_text: 왼쪽
@@ -132,9 +132,12 @@ components:
         - STARTING
         - AWAITING_START
         - COMMAND_READY
+        - REQUEST_RECEIVED
         - MANUAL_MOVING
         - VISUAL_SERVOING
         - RETURNING
+        - COMPLETED
+        - SAFE_WAIT
         - ERROR
         - PEDAL_MOVING
         - HOLDING

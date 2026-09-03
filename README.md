@@ -92,7 +92,7 @@ python3 examples/send_demo.py --state ERROR
 
 ## 실제 로봇 연동
 
-기존 로봇 동작 코드는 바꾸지 않고, 아래 상태 조회 함수의 값을 읽어 Display로 보냅니다.
+기존 로봇 동작과 분리된 observer가 아래 읽기 전용 상태를 Display로 보냅니다.
 
 - `controller.loop_status()`
 - `coordinator.arm_state()`
@@ -141,12 +141,15 @@ Display 주소를 설정하지 않았거나 주소가 잘못되어도 로봇 프
 | 화면 의미 | 전송 State | 비고 |
 |---|---|---|
 | 시스템 준비 | `STARTING` | 시작 과정 |
-| “시작” 명령 대기 | `AWAITING_START` | 세션 시작 전 |
+| “스코프 시작” 명령 대기 | `AWAITING_START` | 세션 시작 전 |
 | 명령 대기 | `COMMAND_READY` | 별도 READY 이벤트가 없어 연동 모듈이 계산 |
+| 명령 확인 | `REQUEST_RECEIVED` | 실행 승인 직후 0.6초 표시 |
 | 3축 수동 이동 | `MANUAL_MOVING` | 방향·배율은 추가 정보로 전송 |
 | Visual Servoing | `VISUAL_SERVOING` | 실제 시각 추종 |
 | 준비 위치 복귀 | `RETURNING` | `voice_ready` 동작 |
-| 담당자 확인 | `ERROR` | 정규화 오류 코드만 전송 |
+| 동작 완료 | `COMPLETED` | 정상 동작 종료 직후 0.8초 표시 |
+| 안전 대기 | `SAFE_WAIT` | 보호·복구 대기 |
+| 시스템 확인 | `ERROR` | 정규화 오류 코드만 전송 |
 
 다음 3개는 기존 신호를 잃지 않기 위한 수신 호환 State입니다.
 
@@ -154,7 +157,7 @@ Display 주소를 설정하지 않았거나 주소가 잘못되어도 로봇 프
 |---|---|
 | `PEDAL_MOVING` | `MANUAL_MOVING` |
 | `HOLDING` | `COMMAND_READY` |
-| `PROTECTIVE_RECOVERY` | `COMMAND_READY` |
+| `PROTECTIVE_RECOVERY` | `SAFE_WAIT` |
 
 원본 State는 태블릿 진단 데이터에 유지하고 화면 표시 단계에서만 변환합니다. 전체 목록과 enum은 [`contract/states.json`](contract/states.json), HTTP 명세는 [`contract/openapi.yaml`](contract/openapi.yaml)을 기준으로 합니다.
 
@@ -186,6 +189,8 @@ UUID, 세션 ID, 순번, 시간, 중요도, 연결 확인 신호는 직접 만�
 ```
 
 못 알아들은 경우에는 `recognition_result=unrecognized`, `command_result=rejected`로 전송합니다. `recognized_text`에는 화면에 잠깐 보여줄 최종 문장만 최대 80자로 넣습니다. 녹음된 음성 파일과 인식 중간 문장은 보내지 않습니다.
+
+실행 승인 결과는 `REQUEST_RECEIVED`, 동작이 정상 종료된 edge는 `COMPLETED`로 observer가 자동 전환합니다. `ERROR`와 `SAFE_WAIT`는 이 짧은 피드백 화면보다 항상 우선합니다.
 
 ## 꼭 지켜야 할 사항
 
