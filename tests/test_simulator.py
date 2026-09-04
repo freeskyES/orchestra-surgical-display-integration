@@ -129,6 +129,13 @@ class SimulatorTest(unittest.TestCase):
         )
         self.assertEqual(HTTPStatus.UNPROCESSABLE_ENTITY, status)
 
+    def test_safe_wait_uses_warning_severity(self) -> None:
+        status, _ = self._post("/api/v1/state", {"state": "SAFE_WAIT"})
+
+        self.assertEqual(HTTPStatus.ACCEPTED, status)
+        robot = self._get("/api/v1/robots")["robots"][0]
+        self.assertEqual("WARNING", robot["severity"])
+
     def _event(self, state: str) -> dict[str, object]:
         return {
             "schema_version": 1,

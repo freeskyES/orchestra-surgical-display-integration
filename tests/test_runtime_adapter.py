@@ -78,6 +78,23 @@ class RuntimeAdapterTest(unittest.TestCase):
         self.assertEqual("PEDAL_MOVING", pedal.state)
         self.assertEqual("engaged", pedal.payload["pedal_phase"])
 
+    def test_persistent_runtime_state_matrix(self) -> None:
+        cases = (
+            (RuntimeSnapshot(startup_complete=False), "STARTING"),
+            (RuntimeSnapshot(session_active=False), "AWAITING_START"),
+            (RuntimeSnapshot(), "COMMAND_READY"),
+            (RuntimeSnapshot(motion_active=True, motion_label="manual_left"), "MANUAL_MOVING"),
+            (RuntimeSnapshot(servo_enabled=True), "VISUAL_SERVOING"),
+            (RuntimeSnapshot(motion_active=True, motion_label="voice_ready"), "RETURNING"),
+            (RuntimeSnapshot(motion_active=True, motion_label="left_pedal_insert"), "PEDAL_MOVING"),
+            (RuntimeSnapshot(motion_active=True, motion_label="rcm_protective_hold"), "PROTECTIVE_RECOVERY"),
+            (RuntimeSnapshot(fault_code="ROBOT_FAULT"), "ERROR"),
+        )
+
+        for snapshot, expected in cases:
+            with self.subTest(expected=expected):
+                self.assertEqual(expected, resolve_runtime_event(snapshot).state)
+
     def test_fault_text_is_not_exposed_and_error_wins(self) -> None:
         snapshot = RuntimeSnapshot.from_components(
             SimpleNamespace(
@@ -171,6 +188,67 @@ class RuntimeAdapterTest(unittest.TestCase):
         self.assertEqual("assist", payload["active_arm"])
         self.assertEqual(0.5, payload["direction_scale"])
         self.assertEqual("transcribing", payload["voice_phase"])
+
+    def test_runtime_observer_exposes_real_startup_state(self) -> None:
+        publisher = _Publisher()
+        observer = SoloSurgeryRuntimeObserver(
+            SoloSurgeryDisplayAdapter(publisher),
+            controller=SimpleNamespace(
+                loop_status=lambda: SimpleNamespace(
+                    active=False,
+                    label="hold",
+                    fault=None,
+                )
+            ),
+            servo=SimpleNamespace(is_enabled=lambda: False),
+            coordinator=SimpleNamespace(
+                session_active=False,
+                gripper=None,
+                arm_state=lambda: {},
+            ),
+            startup_complete=False,
+        )
+
+        self.assertTrue(observer.poll_once())
+        self.assertEqual("STARTING", publisher.events[-1][0])
+
+    def test_visual_and_gripper_details_are_read_from_existing_snapshots(self) -> None:
+        publisher = _Publisher()
+        observer = SoloSurgeryRuntimeObserver(
+            SoloSurgeryDisplayAdapter(publisher),
+            controller=SimpleNamespace(
+                loop_status=lambda: SimpleNamespace(
+                    active=False,
+                    label="hold",
+                    fault=None,
+                )
+            ),
+            servo=SimpleNamespace(
+                is_enabled=lambda: True,
+                basic_controller=SimpleNamespace(state="TARGET_LOST"),
+            ),
+            coordinator=SimpleNamespace(
+                session_active=True,
+                gripper=object(),
+                arm_state=lambda: {
+                    "gripper_available": True,
+                    "gripper_open": True,
+                },
+            ),
+        )
+
+        self.assertTrue(observer.poll_once())
+        state, payload, _ = publisher.events[-1]
+        self.assertEqual("VISUAL_SERVOING", state)
+        self.assertEqual("target_lost", payload["visual_phase"])
+        self.assertEqual("open", payload["gripper_requested"])
+
+        observer.set_voice_unavailable()
+        observer._servo = SimpleNamespace(is_enabled=lambda: False)
+        self.assertTrue(observer.poll_once())
+        _, payload, _ = publisher.events[-1]
+        self.assertEqual("error", payload["voice_phase"])
+        self.assertEqual("VOICE_UNAVAILABLE", payload["command_action"])
 
     def test_runtime_observer_voice_result_is_separate_from_main_state(self) -> None:
         publisher = _Publisher()

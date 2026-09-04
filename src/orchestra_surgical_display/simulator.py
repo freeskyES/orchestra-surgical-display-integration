@@ -304,7 +304,7 @@ class SimulatorHandler(BaseHTTPRequestHandler):
             "ERROR"
             if state == "ERROR"
             else "WARNING"
-            if state in {"HOLDING", "PROTECTIVE_RECOVERY"}
+            if state in {"SAFE_WAIT", "HOLDING", "PROTECTIVE_RECOVERY"}
             else "INFO"
         )
         return {

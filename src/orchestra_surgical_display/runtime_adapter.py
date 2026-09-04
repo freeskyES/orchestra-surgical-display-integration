@@ -390,6 +390,16 @@ class SoloSurgeryRuntimeObserver:
         with self._lock:
             self._voice_phase = str(phase)
 
+    def set_voice_unavailable(self) -> None:
+        with self._lock:
+            self._voice_phase = "error"
+            self._recognized_text = None
+            self._recognition_result = None
+            self._command_action = "VOICE_UNAVAILABLE"
+            self._command_result = None
+            self._request_until = 0.0
+            self._result_until = 0.0
+
     def set_voice_result(
         self,
         transcript: str,
@@ -437,7 +447,7 @@ class SoloSurgeryRuntimeObserver:
 
         try:
             status = self._controller.loop_status()
-            arm_state = self._coordinator.arm_state()
+            arm_state = dict(self._coordinator.arm_state() or {})
             session_active = bool(getattr(self._coordinator, "session_active"))
             servo_enabled = bool(self._servo.is_enabled())
             now = float(self._clock())
@@ -453,7 +463,16 @@ class SoloSurgeryRuntimeObserver:
                 request_until = self._request_until
                 result_until = self._result_until
                 completed_until = self._completed_until
+            if visual_phase is None:
+                visual_phase = _read_visual_phase(self._servo, status)
             gripper = getattr(self._coordinator, "gripper", None)
+            gripper_available = bool(
+                arm_state.get("gripper_available", gripper is not None)
+            )
+            if gripper_requested is None:
+                gripper_open = arm_state.get("gripper_open")
+                if isinstance(gripper_open, bool):
+                    gripper_requested = "open" if gripper_open else "close"
             snapshot = RuntimeSnapshot.from_components(
                 status,
                 startup_complete=startup_complete,
@@ -466,9 +485,9 @@ class SoloSurgeryRuntimeObserver:
                 command_action=command_action,
                 command_result=command_result,
                 visual_phase=visual_phase,
-                gripper_available=gripper is not None,
+                gripper_available=gripper_available,
                 gripper_requested=gripper_requested,
-                gripper_health="ok" if gripper is not None else "unavailable",
+                gripper_health="ok" if gripper_available else "unavailable",
             )
             persistent = resolve_runtime_event(snapshot)
             with self._lock:
@@ -477,8 +496,6 @@ class SoloSurgeryRuntimeObserver:
                 completed_transition = (
                     previous_state in {
                         "MANUAL_MOVING",
-                        "PEDAL_MOVING",
-                        "VISUAL_SERVOING",
                         "RETURNING",
                     }
                     and persistent.state in {"COMMAND_READY", "HOLDING"}
@@ -498,6 +515,13 @@ class SoloSurgeryRuntimeObserver:
             elif now < request_until:
                 event = ResolvedRuntimeEvent("REQUEST_RECEIVED", persistent.payload)
             elif now < result_until:
+                event = persistent
+            elif persistent.state in {
+                "MANUAL_MOVING",
+                "PEDAL_MOVING",
+                "VISUAL_SERVOING",
+                "RETURNING",
+            }:
                 event = persistent
             elif now < completed_until:
                 event = ResolvedRuntimeEvent("COMPLETED", persistent.payload)
@@ -549,6 +573,7 @@ def start_runtime_observer_from_env(
     servo: object,
     coordinator: object,
     environ: Mapping[str, str] | None = None,
+    startup_complete: bool = True,
 ) -> SoloSurgeryRuntimeObserver | None:
     """Start the optional bridge without making Display a robot dependency.
 
@@ -580,6 +605,7 @@ def start_runtime_observer_from_env(
             servo=servo,
             coordinator=coordinator,
             poll_interval=interval,
+            startup_complete=startup_complete,
             close_adapter=True,
         ).start()
     except Exception:
@@ -590,6 +616,22 @@ def start_runtime_observer_from_env(
 
 def _normalize_label(value: str) -> str:
     return str(value).strip().lower().replace("-", "_") or "hold"
+
+
+def _read_visual_phase(servo: object, status: object) -> str | None:
+    label = _normalize_label(getattr(status, "label", ""))
+    if label == "visual_handoff_decelerating":
+        return "handoff_decelerating"
+    controller = getattr(servo, "basic_controller", None)
+    raw = str(getattr(controller, "state", "")).strip().upper()
+    return {
+        "WAITING_FOR_TARGET": "waiting_for_target",
+        "ACQUIRING_TARGET": "acquiring",
+        "TRACKING": "tracking",
+        "WAITING_COMMAND_PERIOD": "tracking",
+        "TARGET_LOSS_GRACE": "target_loss_grace",
+        "TARGET_LOST": "target_lost",
+    }.get(raw)
 
 
 def _normalize_voice_phase(value: str) -> str:
